@@ -47,12 +47,10 @@
 
   <script>
     let callObject = null;
-    let participantCheckInterval = null;
     let currentConversationId = null;
 
-    // Extract user_name and conversation_id from URL parameters
+    // Extract conversation_id from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const userName = urlParams.get('user_name') || 'Guest';
     const urlConversationId = urlParams.get('conversation_id');
 
     // Function to update URL with new conversation ID
@@ -89,71 +87,85 @@
         alert('Please enter a conversation ID');
         return;
       }
+      joinNewRoom(conversationId);
+    });
+
+    function joinNewRoom(conversationId) {
       currentConversationId = conversationId;
-      initializeChat(conversationId);
+      joinRoom(conversationId);
+      updateUIForChat();
+    }
+
+    function updateUIForChat() {
       document.getElementById('start-btn').style.display = 'none';
       document.getElementById('video-container').style.display = 'flex';
       document.getElementById('chat-box').style.display = 'flex';
-    });
+    }
 
-    async function initializeChat(conversationId) {
-      const roomUrl = `https://tavus.daily.co/${conversationId}`;
-      
-      callObject = DailyIframe.createCallObject({
-        audioSource: false,
-        videoSource: false
+    function joinRoom(conversationId) {
+      if (callObject) {
+        callObject.leave();
+      }
+
+      // Create the call object with simpler configuration
+      callObject = DailyIframe.createCallObject();
+
+      // Set up app message listener
+      callObject.on('app-message', (message) => {
+        console.log('Received app-message:', message);
       });
 
-      try {
-        await callObject.join({ 
-          url: roomUrl,
-          userName: userName
-        });
-        console.log(`Joined the call successfully as ${userName}`);
-
-        // Start polling for existing participant
-        participantCheckInterval = setInterval(checkForExistingParticipant, 2000);
-      } catch (error) {
-        console.error('Error joining the call:', error);
+      // Join the room
+      callObject.join({ 
+        url: `https://tavus.daily.co/${conversationId}`,
+        userName: "Guest"
+      })
+      .then(() => {
+        console.log(`Successfully joined room: ${conversationId}`);
+        // Add a delay before checking for participants
+        setTimeout(() => {
+          checkForExistingParticipant();
+        }, 1500);
+      })
+      .catch((err) => {
+        console.error('Error joining the room:', err);
         alert('Failed to join the call. Please check the conversation ID.');
-      }
+        // Reset UI on error
+        document.getElementById('start-btn').style.display = 'block';
+        document.getElementById('video-container').style.display = 'none';
+        document.getElementById('chat-box').style.display = 'none';
+      });
     }
 
     function checkForExistingParticipant() {
       const participants = callObject.participants();
-      console.log('Checking for existing participants:', participants);
+      console.log('Participants:', participants);
 
       const existingParticipant = Object.values(participants).find(
         (participant) => participant.local === false
       );
 
       if (existingParticipant) {
-        console.log(`Participant found: ${existingParticipant.user_id}`);
-        subscribeToParticipantStreams(existingParticipant);
+        console.log(`Existing participant found: ${existingParticipant.user_id}`);
 
-        // Stop polling once a participant is found
-        clearInterval(participantCheckInterval);
-      }
-    }
+        // Subscribe to the participant's video and audio tracks
+        if (existingParticipant.tracks.video.state === 'playable') {
+          const videoElement = document.getElementById('participant-video');
+          videoElement.srcObject = new MediaStream([existingParticipant.tracks.video.persistentTrack]);
+        } else {
+          console.log('No playable video track for existing participant.');
+        }
 
-    function subscribeToParticipantStreams(participant) {
-      // Subscribe to video
-      if (participant.tracks.video.state === 'playable') {
-        const videoElement = document.getElementById('participant-video');
-        videoElement.srcObject = new MediaStream([participant.tracks.video.persistentTrack]);
+        if (existingParticipant.tracks.audio.state === 'playable') {
+          const audioStream = new MediaStream([existingParticipant.tracks.audio.persistentTrack]);
+          const audio = new Audio();
+          audio.srcObject = audioStream;
+          audio.autoplay = true;
+        } else {
+          console.log('No playable audio track for existing participant.');
+        }
       } else {
-        console.log('No playable video track for participant.');
-      }
-
-      // Subscribe to audio
-      if (participant.tracks.audio.state === 'playable') {
-        const audioStream = new MediaStream([participant.tracks.audio.persistentTrack]);
-        const audio = new Audio();
-        audio.srcObject = audioStream;
-        audio.autoplay = true;
-        console.log('Subscribed to audio track.');
-      } else {
-        console.log('No playable audio track for participant.');
+        console.log('No existing participant found.');
       }
     }
 

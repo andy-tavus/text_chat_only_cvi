@@ -5,87 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tavus CVI Chat-Only Example</title>
   <script src="https://unpkg.com/@daily-co/daily-js"></script>
-  <style>
-    body {	
-	  font-family: Arial, sans-serif;
-	  margin: 20px;
-    }
-    #video-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 20px;
-    }
-    video {
-      background: black;
-	  width: 50%;
-	  height: auto;
-	  margin: 10px 0;
-    }
-    #chat-box {
-      display: none;
-      flex-direction: column;
-      margin-top: 20px;
-    }
-    #chat-input {
-      width: 80%;
-      padding: 10px;
-      font-size: 16px;
-    }
-    #start-btn {
-      display: block;
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 18px;
-      cursor: pointer;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Tavus CVI Chat-Only Example</h1>
-  <h2>Subscribe to Replica's Video & Audio Streams but Share no user mic/camera</h2>
-  <h2>Chat by Typing Text. Uses Interactions Protocol - <a href="https://docs.tavus.io/sections/event-schemas/conversation-respond">"respond" event</a></h2>
-  <h3><a href="https://github.com/andy-tavus/text_chat_only_cvi">(source)</a></h3>
-
-
-<p>TO USE:</p>
-<ol>
-<li>Generate a conversation using API or <a href="https://platform.tavus.io">platform</a></li>
-<li>Append this parameter to the URL for this page and replace <code>c123abc</code> with the conversation ID you just generated: <code>?conversation_id=c123abc</code>. Submit the URL and the page will reload.</li>
-<li>Click to Start Chat.</li>
-</ol>
-
-</body></html>
-  <button id="start-btn">Start Chat</button>
-  
-  <div id="video-container" style="display: none;">
-    <video id="participant-video" autoplay playsinline></video>
+  <div class="header-container">
+    <h1>Tavus CVI Chat-Only Example</h1>
+    <div class="description">
+      <p>Text-only chat interface for Tavus Replicas</p>
+      <div class="links">
+        <a href="https://docs.tavus.io/sections/event-schemas/conversation-respond">Learn more</a>
+        <span class="separator">|</span>
+        <a href="https://github.com/andy-tavus/text_chat_only_cvi">View Source Code</a>
+      </div>
+    </div>
   </div>
-  
-  <div id="chat-box">
-    <label for="chat-input">Chat:</label>
-    <input type="text" id="chat-input" placeholder="Type your message and hit Enter..." />
+
+  <div class="main-container">
+    <div class="instructions-container">
+      <h2>Getting Started</h2>
+      <ol>
+        <li>Generate a conversation using the <a href="https://docs.tavus.io/api-reference/conversations/create-conversation" target="_blank">Create Conversation API</a> or <a href="https://platform.tavus.io">platform</a></li>
+        <li>Enter your conversation ID below</li>
+        <li>Click to Start Chat</li>
+      </ol>
+      <div class="conversation-input">
+        <input type="text" id="conversation-id-input" placeholder="Enter conversation ID (e.g., c123abc)" />
+        <small class="note">Note: You can also append <code>?conversation_id=YOUR_ID</code> to the URL</small>
+      </div>
+      <button id="start-btn">Start Chat</button>
+    </div>
+    
+    <div class="video-section">
+      <div id="video-container">
+        <video id="participant-video" autoplay playsinline></video>
+      </div>
+      <div id="chat-box">
+        <input type="text" id="chat-input" placeholder="Type your message and hit Enter..." />
+      </div>
+    </div>
   </div>
-  
+
   <script>
     let callObject = null;
     let participantCheckInterval = null;
+    let currentConversationId = null;
 
     // Extract user_name and conversation_id from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const userName = urlParams.get('user_name') || 'Guest';
-    const conversationId = urlParams.get('conversation_id') || 'default';
-    const roomUrl = `https://tavus.daily.co/${conversationId}`;
+    const urlConversationId = urlParams.get('conversation_id');
+
+    // Function to update URL with new conversation ID
+    function updateUrlWithConversationId(id) {
+      const newUrl = new URL(window.location.href);
+      if (id) {
+        newUrl.searchParams.set('conversation_id', id);
+      } else {
+        newUrl.searchParams.delete('conversation_id');
+      }
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    // Function to update input field with conversation ID
+    function updateInputWithConversationId(id) {
+      document.getElementById('conversation-id-input').value = id || '';
+    }
+
+    // If conversation ID exists in URL, populate the input field
+    if (urlConversationId) {
+      updateInputWithConversationId(urlConversationId);
+    }
+
+    // Listen for changes in the input field
+    document.getElementById('conversation-id-input').addEventListener('input', (event) => {
+      const newId = event.target.value.trim();
+      updateUrlWithConversationId(newId);
+    });
 
     // Start Chat Button Listener
     document.getElementById('start-btn').addEventListener('click', () => {
-      initializeChat();
-      document.getElementById('start-btn').style.display = 'none'; // Hide Start button
+      const conversationId = document.getElementById('conversation-id-input').value.trim();
+      if (!conversationId) {
+        alert('Please enter a conversation ID');
+        return;
+      }
+      currentConversationId = conversationId;
+      initializeChat(conversationId);
+      document.getElementById('start-btn').style.display = 'none';
       document.getElementById('video-container').style.display = 'flex';
       document.getElementById('chat-box').style.display = 'flex';
     });
 
-    async function initializeChat() {
+    async function initializeChat(conversationId) {
+      const roomUrl = `https://tavus.daily.co/${conversationId}`;
+      
       callObject = DailyIframe.createCallObject({
         audioSource: false,
         videoSource: false
@@ -162,9 +175,9 @@
       }
 
       const payload = {
-  		message_type: "conversation",
-  		event_type: "conversation.respond",
-        conversation_id: conversationId,
+        message_type: "conversation",
+        event_type: "conversation.respond",
+        conversation_id: currentConversationId,
         properties: {
           text: message
         }

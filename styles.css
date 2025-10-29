@@ -176,9 +176,84 @@ a:visited {
   margin: 0;
 }
 
+#chat-history-container {
+  display: none;
+  width: 100%;
+}
+
+#chat-history {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: rgba(30, 30, 30, 0.8);
+  border: 2px solid #df44a6;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.chat-message {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.user-message {
+  background-color: rgba(223, 68, 166, 0.1);
+  border-left-color: #df44a6;
+  margin-left: 20px;
+}
+
+.assistant-message {
+  background-color: rgba(100, 100, 100, 0.1);
+  border-left-color: #888;
+  margin-right: 20px;
+}
+
+.message-role {
+  font-weight: bold;
+  font-size: 0.9em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.user-message .message-role {
+  color: #df44a6;
+}
+
+.assistant-message .message-role {
+  color: #bbb;
+}
+
+.message-text {
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+/* Custom scrollbar for chat history */
+#chat-history::-webkit-scrollbar {
+  width: 8px;
+}
+
+#chat-history::-webkit-scrollbar-track {
+  background: rgba(30, 30, 30, 0.5);
+  border-radius: 4px;
+}
+
+#chat-history::-webkit-scrollbar-thumb {
+  background: #df44a6;
+  border-radius: 4px;
+}
+
+#chat-history::-webkit-scrollbar-thumb:hover {
+  background: #e75bbc;
+}
+
 #chat-box {
   display: none;
   width: 100%;
+  margin-bottom: 20px;
 }
 
 #chat-input {

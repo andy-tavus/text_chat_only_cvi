@@ -42,6 +42,9 @@
       <div id="chat-box">
         <input type="text" id="chat-input" placeholder="Type your message and hit Enter..." />
       </div>
+      <div id="chat-history-container">
+        <div id="chat-history"></div>
+      </div>
     </div>
   </div>
 
@@ -99,6 +102,7 @@
     function updateUIForChat() {
       document.getElementById('start-btn').style.display = 'none';
       document.getElementById('video-container').style.display = 'flex';
+      document.getElementById('chat-history-container').style.display = 'block';
       document.getElementById('chat-box').style.display = 'flex';
     }
 
@@ -113,12 +117,28 @@
       // Set up app message listener
       callObject.on('app-message', (message) => {
         console.log('Received app-message:', message);
+        
+        // Handle conversation.utterance events
+        if (message.data && message.data.event_type === 'conversation.utterance') {
+          const properties = message.data.properties;
+          if (properties && properties.speech && properties.role) {
+            addMessageToHistory(properties.speech, properties.role);
+          }
+        }
       });
 
-      // Join the room
+      // Ensure mic and camera are always disabled
+      callObject.on('joined-meeting', () => {
+        callObject.setLocalAudio(false);
+        callObject.setLocalVideo(false);
+      });
+
+      // Join the room with mic and camera disabled
       callObject.join({ 
         url: `https://tavus.daily.co/${conversationId}`,
-        userName: "Guest"
+        userName: "Guest",
+        startVideoOff: true,
+        startAudioOff: true
       })
       .then(() => {
         console.log(`Successfully joined room: ${conversationId}`);
@@ -133,6 +153,7 @@
         // Reset UI on error
         document.getElementById('start-btn').style.display = 'block';
         document.getElementById('video-container').style.display = 'none';
+        document.getElementById('chat-history-container').style.display = 'none';
         document.getElementById('chat-box').style.display = 'none';
       });
     }
@@ -186,6 +207,8 @@
         return;
       }
 
+      // Don't add user message immediately - wait for utterance event
+
       const payload = {
         message_type: "conversation",
         event_type: "conversation.respond",
@@ -201,6 +224,30 @@
       } catch (error) {
         console.error('Failed to send app message:', error);
       }
+    }
+
+    function addMessageToHistory(text, role) {
+      const chatHistory = document.getElementById('chat-history');
+      const messageDiv = document.createElement('div');
+      
+      // Map 'replica' role to 'assistant' for styling
+      const displayRole = role === 'replica' ? 'assistant' : role;
+      messageDiv.className = `chat-message ${displayRole}-message`;
+      
+      const roleLabel = document.createElement('div');
+      roleLabel.className = 'message-role';
+      roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
+      
+      const messageText = document.createElement('div');
+      messageText.className = 'message-text';
+      messageText.textContent = text;
+      
+      messageDiv.appendChild(roleLabel);
+      messageDiv.appendChild(messageText);
+      chatHistory.appendChild(messageDiv);
+      
+      // Scroll to bottom
+      chatHistory.scrollTop = chatHistory.scrollHeight;
     }
   </script>
 </body>
